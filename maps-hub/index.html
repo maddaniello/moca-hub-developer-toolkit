@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Maps Reviews Scraper - Moca Hub</title>
+
+  <!-- Favicon (Moca standard) -->
+  <link rel="icon" type="image/png" sizes="96x96" href="https://mocainteractive.com/favicon-96x96.png">
+
+  <!-- Google Fonts: Figtree -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Moca SDK -->
+  <script src="./moca-sdk.js"></script>
+
+  <!-- Maps Hub config & libs -->
+  <script src="./lib/constants.js"></script>
+  <script src="./lib/config.js"></script>
+  <script src="./lib/supabase-client.js"></script>
+  <script src="./lib/prompt-utils.js"></script>
+  <script src="./lib/prompt-definitions.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+  <!-- App container (hidden until authenticated) -->
+  <div id="app" style="display: none;">
+
+    <!-- Header with Design System v2.0 -->
+    <header class="header">
+      <div class="header-left">
+        <a id="back-to-hub" href="https://moca-central-hub.netlify.app" class="header-back-link" title="Torna al Hub">
+          <i data-lucide="arrow-left"></i>
+        </a>
+        <img src="https://mocainteractive.com/assets/svg/logo-light.svg" alt="Moca" class="moca-logo-header">
+        <span class="header-app-name" id="header-app-name">Google Maps Reviews Scraper</span>
+      </div>
+      <div class="header-center">
+        <img id="client-logo" class="client-logo-center" alt="Client Logo">
+      </div>
+      <div class="header-right">
+        <button id="btn-dark-mode" class="btn-dark-mode" title="Tema scuro">
+          <i data-lucide="moon"></i>
+        </button>
+        <button id="btn-history" class="btn-header-action" title="Storico">
+          <i data-lucide="history"></i>
+        </button>
+        <button id="btn-settings" class="btn-header-action" title="Impostazioni Prompt AI">
+          <i data-lucide="settings"></i>
+        </button>
+        <div class="powered-by">
+          <span>Powered by Moca</span>
+          <div class="pulse-dot"></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="container">
+
+      <!-- Step 1: Configuration -->
+      <div class="card" id="step-1">
+        <h2 class="step-title">
+          <i data-lucide="settings-2"></i> Step 1: Configurazione
+        </h2>
+
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+          <button id="mode-brand" class="mode-btn active">
+            <i data-lucide="search"></i> Brand Search
+          </button>
+          <button id="mode-url" class="mode-btn">
+            <i data-lucide="link"></i> URL Manuale
+          </button>
+        </div>
+
+        <!-- Brand Mode -->
+        <div id="brand-mode" class="mode-content">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="brand-name">Nome Brand *</label>
+              <input type="text" id="brand-name" placeholder="es. McDonald's" required>
+            </div>
+
+            <div class="form-group">
+              <label for="location">Location</label>
+              <div class="select-wrapper">
+                <select id="location">
+                  <option value="italy">🇮🇹 Solo Italia</option>
+                  <option value="custom">🌍 Custom Location</option>
+                  <option value="world">🌎 Tutto il Mondo</option>
+                </select>
+                <i data-lucide="chevron-down" class="select-icon"></i>
+              </div>
+            </div>
+
+            <div class="form-group" id="custom-location-group" style="display: none;">
+              <label for="custom-location">Custom Location</label>
+              <input type="text" id="custom-location" placeholder="es. Milano, FR">
+            </div>
+
+            <div class="form-group">
+              <label for="max-places">Max Schede</label>
+              <input type="number" id="max-places" value="20" min="1" max="100">
+            </div>
+
+            <div class="form-group">
+              <label for="max-reviews">Max Recensioni per Scheda</label>
+              <input type="number" id="max-reviews" value="100" min="10" max="500">
+            </div>
+
+            <div class="form-group">
+              <label for="search-mode">Search Mode</label>
+              <div class="select-wrapper">
+                <select id="search-mode">
+                  <option value="balanced">⚖️ Balanced</option>
+                  <option value="aggressive">⚡ Aggressive</option>
+                  <option value="strict">🎯 Strict</option>
+                </select>
+                <i data-lucide="chevron-down" class="select-icon"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <label>
+              <input type="checkbox" id="skip-closed">
+              Skip Schede Chiuse Permanentemente
+            </label>
+          </div>
+        </div>
+
+        <!-- URL Mode -->
+        <div id="url-mode" class="mode-content" style="display: none;">
+          <div class="form-group">
+            <label for="manual-urls">URL Google Maps (uno per riga)</label>
+            <textarea id="manual-urls" rows="8"
+              placeholder="https://www.google.com/maps/place/...&#10;?query_place_id=ChIJ...&#10;ChIJxxxxx..."></textarea>
+            <small class="help-text">Supporta: query_place_id, place_id, /place/ URL, ChIJ diretto</small>
+          </div>
+
+          <div class="form-group">
+            <label for="max-reviews-url">Max Recensioni per Scheda</label>
+            <input type="number" id="max-reviews-url" value="100" min="10" max="500">
+          </div>
+        </div>
+
+        <!-- AI Configuration -->
+        <div class="ai-section">
+          <div class="checkbox-group">
+            <label>
+              <input type="checkbox" id="enable-ai">
+              <i data-lucide="bot"
+                style="display: inline-block; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></i>
+              Abilita Analisi AI (OpenAI GPT-4)
+            </label>
+            <label style="margin-left: 20px; border-left: 1px solid #ccc; padding-left: 20px;">
+              <input type="checkbox" id="ai-sampling" checked>
+              <i data-lucide="zap"
+                style="display: inline-block; width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 4px;"></i>
+              Campionamento (utile per presale)
+            </label>
+          </div>
+
+          <div id="ai-config" style="display: none;">
+            <div class="form-group">
+              <label for="openai-model">Modello OpenAI</label>
+              <div class="select-wrapper">
+                <select id="openai-model">
+                  <option value="gpt-4o-mini" selected>GPT-4o Mini (Consigliato - Economico)</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                  <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
+                  <option value="gpt-4">GPT-4</option>
+                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                </select>
+                <i data-lucide="chevron-down" class="select-icon"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button id="btn-search" class="btn-primary">
+          <i data-lucide="search"></i> Cerca Schede
+        </button>
+      </div>
+
+      <!-- Step 2: Place Selection -->
+      <div class="card" id="step-2" style="display: none;">
+        <h2 class="step-title">
+          <i data-lucide="map-pin"></i> Step 2: Selezione Schede
+        </h2>
+        <div class="selection-actions">
+          <button id="btn-select-all" class="btn-secondary">
+            <i data-lucide="check-square"></i> Seleziona Tutto
+          </button>
+          <button id="btn-deselect-all" class="btn-secondary">
+            <i data-lucide="square"></i> Deseleziona Tutto
+          </button>
+        </div>
+        <div id="places-list" class="places-list"></div>
+        <button id="btn-start-scrape" class="btn-primary">
+          <i data-lucide="rocket"></i> Avvia Scraping
+        </button>
+      </div>
+
+      <!-- Step 3: Progress -->
+      <div class="card" id="step-3" style="display: none;">
+        <h2 class="step-title">
+          <i data-lucide="loader-2" class="animate-spin"></i> Step 3: Elaborazione
+        </h2>
+        <div class="progress-container">
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="progress-text" class="progress-text">Inizializzazione...</p>
+        </div>
+      </div>
+
+      <!-- Step 4: Results -->
+      <div class="card" id="step-4" style="display: none;">
+        <h2 class="step-title">
+          <i data-lucide="bar-chart-2"></i> Step 4: Risultati
+        </h2>
+
+        <!-- Export Buttons -->
+        <div class="export-actions">
+          <button id="btn-export-json" class="btn-secondary">
+            <i data-lucide="file-json"></i> Export JSON
+          </button>
+          <button id="btn-export-csv" class="btn-secondary">
+            <i data-lucide="file-spreadsheet"></i> Export CSV
+          </button>
+          <button id="btn-export-pdf" class="btn-secondary">
+            <i data-lucide="file-text"></i> Export PDF
+          </button>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div id="tabs-nav" class="tabs-nav"></div>
+
+        <!-- Tab Content -->
+        <div id="tabs-content" class="tabs-content"></div>
+      </div>
+
+    </div>
+
+    <!-- Footer (standard) -->
+    <footer class="app-footer">
+      <p>&copy; <span id="footer-year"></span> Moca - <span id="footer-app-name">Google Maps Reviews Scraper</span>. Tutti i diritti riservati.</p>
+    </footer>
+
+  </div>
+
+  <!-- History Modal -->
+  <div id="history-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i data-lucide="library"></i> Storico Ricerche</h2>
+        <button id="modal-close" class="btn-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="history-list"></div>
+      <div class="modal-footer">
+        <button id="btn-clear-history" class="btn-danger">
+          <i data-lucide="trash-2"></i> Cancella Tutto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal: Prompt AI Editabili -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h2><i data-lucide="settings"></i> Impostazioni Prompt AI</h2>
+        <button id="settings-modal-close" class="btn-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" id="settings-body">
+        <p class="settings-intro" id="settings-intro">
+          Personalizza i prompt AI per questo cliente. Le modifiche sono condivise tra tutti gli utenti del team.
+        </p>
+        <div id="settings-prompts-list">
+          <div class="settings-loading">Caricamento impostazioni...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="./app.js"></script>
+  <script>
+    // Initialize icons
+    lucide.createIcons();
+    // Footer year
+    document.getElementById('footer-year').textContent = new Date().getFullYear();
+    // Footer/header app name from constants.js
+    if (window.APP_NAME) {
+      document.getElementById('footer-app-name').textContent = window.APP_NAME;
+      document.getElementById('header-app-name').textContent = window.APP_NAME;
+    }
+  </script>
+</body>
+
+</html>
