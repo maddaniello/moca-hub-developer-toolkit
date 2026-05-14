@@ -1,0 +1,59 @@
+# Netlify Configuration for Moca Hub
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Enable Netlify Functions
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Mark heavy Node packages as external so esbuild doesn't try to bundle them
+# They'll be installed at runtime via node_modules
+[functions."process-documents"]
+  external_node_modules = ["pdf-parse", "mammoth", "xlsx", "jszip"]
+
+# API routes redirect to Netlify Functions
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Redirects for SPA (Single Page Application)
+# This ensures that all routes are handled by the React app
+# NOTE: This must come AFTER the /api/* redirect
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Branch deploy contexts
+[context.production]
+  command = "npm run build"
+
+# Staging environment (branch: dev)
+[context.dev]
+  command = "npm run build"
+
+# Environment variables (set these in Netlify UI)
+# Frontend (exposed to browser):
+# VITE_SUPABASE_URL
+# VITE_SUPABASE_ANON_KEY
+#
+# Backend (Netlify Functions only):
+# SUPABASE_URL
+# SUPABASE_SERVICE_ROLE_KEY
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# CORS headers for API endpoints
+# NOTE: CORS is handled dynamically in each Netlify Function via helpers.ts
+# to allow the hub origin + external app origins for validate-launch-token

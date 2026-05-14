@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template App Moca</title>
+  <script src="../moca-sdk.js"></script>
+  <!-- Import Font Figtree -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --moca-red: #E52217;
+      --moca-red-light: #FFE7E6;
+      --moca-black: #191919;
+      --moca-gray: #8A8A8A;
+      --moca-bg: #F3F4F6;
+      --white: #FFFFFF;
+      --radius-md: 6px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Figtree', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--moca-bg);
+      color: var(--moca-black);
+    }
+
+    #app {
+      display: none;
+      /* Nascosto finché non autenticato */
+    }
+
+    .header {
+      background: var(--moca-black);
+      color: white;
+      border-bottom: 1px solid #333;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .client-info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    .client-logo {
+      height: 48px;
+      width: 48px;
+      object-fit: contain;
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 4px;
+    }
+
+    .client-details h2 {
+      color: white;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .client-details p {
+      color: var(--moca-gray);
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      /* Radius LG */
+      padding: 2rem;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 2rem;
+    }
+
+    .config-item {
+      padding: 0.75rem;
+      background: #f9f9f9;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+      font-family: monospace;
+      font-size: 0.9rem;
+      border: 1px solid #e5e7eb;
+    }
+
+    .available {
+      color: var(--success);
+      font-weight: bold;
+    }
+
+    .missing {
+      color: var(--moca-gray);
+    }
+
+    h1 {
+      color: var(--moca-red);
+      margin-bottom: 1rem;
+    }
+
+    h2 {
+      color: var(--moca-black);
+    }
+
+    h3 {
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .header-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .header-right {
+      flex: 1;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .app-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: white;
+      margin: 0;
+    }
+
+    .moca-logo {
+      height: 24px;
+      width: auto;
+      filter: brightness(0) invert(1);
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Contenuto App (mostrato solo se autenticato) -->
+  <div id="app">
+    <header class="header">
+      <div class="client-info">
+        <img id="client-logo" class="client-logo" alt="Logo Cliente">
+        <div class="client-details">
+          <h2 id="client-name"></h2>
+          <p>
+            <span id="user-name"></span> (<span id="user-role"></span>)
+          </p>
+        </div>
+      </div>
+      <div class="header-center">
+        <h1 class="app-title">Moca App Template</h1>
+      </div>
+      <div class="header-right">
+        <img src="https://mocainteractive.com/assets/svg/logo.svg" alt="Moca" class="moca-logo">
+      </div>
+    </header>
+
+    <div class="container">
+      <div class="card">
+        <h1>🎯 Template Applicazione Moca</h1>
+        <p style="margin: 1rem 0; color: #191919;">
+          Questo è un template base per creare applicazioni integrate con Moca Hub.
+        </p>
+
+        <h3>Configurazioni Disponibili:</h3>
+        <div id="configs"></div>
+
+        <h3>Dati Cliente (Debug):</h3>
+        <pre id="client-data"
+          style="background: #f9f9f9; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Inizializza Moca SDK
+    (async () => {
+      const MOCA_HUB_URL = 'https://moca-central-hub.netlify.app'; // O la tua URL di produzione
+      const moca = new MocaSDK(MOCA_HUB_URL);
+
+      // --- SETUP SVILUPPO LOCALE (MOCK MODE) ---
+      // Decommenta e configura questo blocco per testare in locale senza Hub
+
+      /*
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        console.warn('⚠️ MOCK MODE ATTIVATO');
+        moca.enableMockMode({
+          client: { 
+            name: 'Cliente Demo SRL', 
+            logo_url: 'https://placehold.co/150x50/E52217/FFFFFF?text=CLIENTE' 
+          },
+          user: { 
+            name: 'Mario Rossi', 
+            role: 'admin' 
+          },
+          configurations: {
+            // Inserisci qui le tue chiavi API di test (NON COMMITTARLE!)
+            OPENAI_API_KEY: 'sk-test-key-mock',
+            APIFY_API_KEY: 'apify-test-key-mock'
+          }
+        });
+      }
+      */
+      // -----------------------------------------
+
+      // Autenticazione (o Mock se attivo)
+      const authenticated = await moca.init();
+
+      if (!authenticated) {
+        moca.showAccessDenied();
+        return;
+      }
+
+      // Utente autenticato - mostra l'app
+      document.getElementById('app').style.display = 'block';
+
+      // Recupera dati
+      const client = moca.getClient();
+      const user = moca.getUser();
+      const configs = moca.getAllConfigs();
+
+      // Popola UI
+      document.getElementById('client-logo').src = client.logo_url || 'https://via.placeholder.com/150';
+      document.getElementById('client-name').textContent = client.name;
+      document.getElementById('user-name').textContent = user.name;
+      document.getElementById('user-role').textContent = user.role;
+
+      // Mostra dati cliente (debug)
+      document.getElementById('client-data').textContent = JSON.stringify(client, null, 2);
+
+      // Mostra configurazioni disponibili
+      const configsDiv = document.getElementById('configs');
+      const commonKeys = [
+        'OPENAI_API_KEY',
+        'ANTHROPIC_API_KEY',
+        'APIFY_API_KEY',
+        'SERPAPI_API_KEY'
+      ];
+
+      commonKeys.forEach(key => {
+        const value = moca.getConfig(key);
+        const div = document.createElement('div');
+        div.className = 'config-item';
+
+        if (value) {
+          const masked = '••••••••' + value.slice(-4);
+          div.innerHTML = `<span class="available">✓</span> ${key}: ${masked}`;
+        } else {
+          div.innerHTML = `<span class="missing">✗</span> ${key}: Non configurato`;
+        }
+
+        configsDiv.appendChild(div);
+      });
+
+    })();
+  </script>
+</body>
+
+</html>
